@@ -24,7 +24,57 @@
   </head> 
   <body bgcolor="white" height="100%" width="100%"> 
     <div id="debug"></div>
+    <div style="width: 100%;
+        height: 260px;
+        font-family: Comic Sans MS;
+        background-color: rgb(149, 178, 230);">  
+        <br>
+        <p style="color: bisque;
+                text-align: center;
+                font-size: 3.5ex;"> <b>
+                    Drawing ...</b></p>
+        <p style="
+                font-size: 2.5ex;
+                margin-left: 10px;
+                color: rgba(9, 83, 144, 0.806);">
+                    Enter your stroke line width, then press submit.</p>
+           
+        <input  type="number" name="lines" id="strokeWidth_input" 
+                style="padding: 10px;
+                        border-radius: 8px;
+                        margin-left: 10px;">
+        <input  type="submit" 
+                value="SUBMIT" 
+                onclick="showInput();" 
+                style="
+                    background-color: #e5bd7c;
+                    cursor: pointer;
+                    color: white;
+                    font-size: 16px;
+                    border-radius: 8px;
+                    font-family: fantasy, sans-serif;
+                    font-weight: bold;">
+           
+        <button 
+                onclick="clear_button()";  
+                style = "
+                        cursor: pointer;
+                        border-radius: 8px;
+                        color: white;
+                        display: block;
+                        font-size: 16px;
+                        margin-bottom: 6px;
+                        margin-right: 6%;
+                        float: right;
+                        background-color: #e5bd7c;
+                        font-family: fantasy, sans-serif;
+                        font-weight: bold;">
+                        CLEAR THE SCREEN</button>
+    </div>
+
+    <div>
     <canvas id="c" width="100%" height="100%" style="-webkit-tap-highlight-color: transparent;"></canvas> 
+    </div>
 
     <script>
       // Fix me
@@ -35,6 +85,25 @@ var W = canvas.width  = window.innerWidth-6;
 var H = canvas.height = window.innerHeight-50;
 var wscounter = 0;
 var socket;
+var line_width = 3;
+
+
+//https://github.com/xibing-wang/CMPUT404-assignment-ajax/blob/master/static/index.html
+function clear_button() {
+    clearFrame();
+    world = {}
+    for (var key in world) {
+        var entity = world[key];
+        drawCircle(context,prepEntity(entity));
+    }
+
+}
+
+function showInput() {      
+        line_width = document.getElementById("strokeWidth_input").value;
+    }
+
+
 
 function debug(str) {
     var debugDiv = document.getElementById('debug');
@@ -48,7 +117,7 @@ world = {};
 function drawCircle(context,entity) {
     with(context) {
         beginPath();                
-        lineWidth = 3;
+        lineWidth = line_width;
         var x = entity["x"];
         var y = entity["y"];
         //moveTo(x,y);
@@ -125,6 +194,9 @@ function addEntity(entity, data) {
     world[entity] = data;
     drawNextFrame(); // (but should we?)
     //XXX: Send a XHTML Request that updates the entity you just modified!
+    message = {};
+    message[entity] = data;
+    socket.send(JSON.stringify(message))
 }
 var counter = 0;
 function addEntityWithoutName(data) {
@@ -180,8 +252,8 @@ mouse = (function() {
                 var pos = getPosition(e);
                 var x = pos[0];
                 var y = pos[1];
-	        //self.poppin(x,y);
-	        self.clicked = 0;
+	            //self.poppin(x,y);
+	            self.clicked = 0;
                 self.selected = -1;
                 self.callListeners(self.mouseuppers,x,y,self.clicked,e);
                 //addEntityWithoutName({'x':x,'y':y,'colour':'blue'});
@@ -203,7 +275,7 @@ mouse = (function() {
                 var y = pos[1];
 	        if (self.clicked != 0) {
 	            //self.squeakin(x,y);
-                    self.callListeners(self.mousedraggers,x,y,self.clicked,e);
+                self.callListeners(self.mousedraggers,x,y,self.clicked,e);
 	        }
                 self.callListeners(self.mousemovers,x,y,self.clicked,e);
             }            
@@ -214,7 +286,7 @@ mouse = (function() {
 	},
 		                                   
         // Install the mouse listeners
-	mouseinstall: function() {
+	    mouseinstall: function() {
             canvas.addEventListener("mousedown",  self.mousedown, false);
             canvas.addEventListener("mousemove",  self.mousemove, false);
             canvas.addEventListener("mouseup",    self.mouseup, false);
@@ -231,16 +303,16 @@ mouse = (function() {
 // Add the application specific mouse listeners!
 //XXX: TODO Make these prettier!
 mouse.mousedowners.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'blue'});
+    addEntityWithoutName({'x':x,'y':y,'colour':'cornflowerblue', 'radius':(3*line_width/2)});
 });
 
 mouse.mouseuppers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'red'});
+    addEntityWithoutName({'x':x,'y':y,'colour':'orchid', 'radius':(3*line_width/2)});
 });
 
 mouse.mousedraggers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'green',
-                          'radius':10});
+    addEntityWithoutName({'x':x,'y':y,'colour':'yellowgreen',
+                          'radius':line_width});
 });
 
 
@@ -254,6 +326,8 @@ function wsSetup() {
     socket = new WebSocket(url);
     socket.onopen = function() {
         //XXX: TODO What are you going to do here?
+        socket.send(JSON.stringify("myworld"));
+        debug("WebSocket Error OPEN");
     };
     socket.onerror = function(msg) {
         debug("WebSocket Error:" + msg.data);
@@ -261,7 +335,12 @@ function wsSetup() {
     socket.onmessage = function(msg) {  
         try {
             debug("WebSocket Recv:" + msg.data);
-            //XXX: TODO What are you going to do here?            
+            //XXX: TODO What are you going to do here?   
+            var message = JSON.parse(msg.data);
+            for (let entity in message) {
+                world[entity] = message[entity];
+            }    
+            drawFrame();     
         } catch (e) {
             alert("socket on message: " + e);
         }
